@@ -1,9 +1,11 @@
 const Aws = require('aws-sdk')
+require('dotenv').config()
 
+// console.log("+++++++++", process.env.DB_NAME)
 Aws.config.update({
-    region: 'ap-south-1',
-    accessKeyId: 'AKIAZF5FMOGN2C6KOMEZ',
-    secretAccessKey: '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'
+    region: process.env.region,
+    accessKeyId: process.env.accessKeyId,
+    secretAccessKey: process.env.secretAccessKey
 })
 // const SNS = new Aws.SNS()
 module.exports = Aws

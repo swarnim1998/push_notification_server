@@ -2,7 +2,8 @@
 const Express = require('express')
 const Aws = require('./aws-config')
 const sns = new Aws.SNS()
-
+const moment = require('moment')
+const NotificationSchema = require('./models/demo')
 
 // create topic 
 const createTopic = (name) => {
@@ -12,7 +13,6 @@ const createTopic = (name) => {
     })
 }
       
-
 // subscribe the topic and after that aws sent a POST confirmation request to the Endpoint
 const subscribeTopic=()=>{
     var params = {
@@ -31,7 +31,8 @@ const subscribeTopic=()=>{
 
 // register device endpoint 
 const createEndpoint=()=>{
-    var params = {
+   console.log(process.env.DB_NAME)
+  var params = {
         PlatformApplicationArn: 'arn:aws:sns:ap-south-1:631170167195:app/GCM/Notifications_demo', /* required */
         Token: 'e4mIF-nCKfapY7SMlgK1Fn:APA91bEVOAiSBGJNynmUxybsVrOlpD8aLJ3B68L8LjL-clK3cWkZJgFTaIGGtovE6AnuEqwKZitwvY-uEop4A7m-fgixaDOF6k6c-joni9mZNrMPODGN967RZqj22LqfsxrOVGtpFWma', /* required */
       };
@@ -45,7 +46,7 @@ const createEndpoint=()=>{
 const publishMessage=()=>{
     var params = {
         Message: "Message Succefully published",
-        TargetArn: "arn:aws:sns:ap-south-1:631170167195:endpoint/GCM/Notifications_demo/13ac0839-090c-338a-aa4a-dc41053fa7e3"
+        TargetArn: "arn:aws:sns:ap-south-1:631170167195:Tft-tech:456c101b-d82a-421b-b0d1-929356a5112a"
     }
     sns.publish(params, function(err, data) {
         if (err) console.log(err, err.stack); // an error occurred
@@ -93,11 +94,37 @@ cwevents.putTargets(params, function(err, data) {
   }
 });
 }
+
+const stepFunction = async (data) =>{ 
+ const stepFunctions = new Aws.StepFunctions()
+ const payload = {
+    stateMachineArn: "arn:aws:states:ap-south-1:631170167195:stateMachine:HelloWorld",
+    input: JSON.stringify({
+      timeStamp: data.timestamp,
+      lambdaName: 'publish_message',
+      receiver: data.receiver,
+      message: data.msg
+    }),
+  }
+ return stepFunctions.startExecution(payload).promise()
+}
+
+const pushNotification =async () =>{
+  const Notifications = await NotificationSchema.find({deleted: false})
+  const NotificationPromise = Notifications.map((item)=>{
+     return stepFunction(item);
+  })
+  await Promise.all(NotificationPromise)
+  await NotificationSchema.updateMany({}, {$set: {deleted: true}})
+}
+
 module.exports ={
     createTopic,
     subscribeTopic,
     publishMessage,
     createEndpoint,
     createEvents,
-    createEventTarget
+    createEventTarget,
+    stepFunction,
+    pushNotification
 }
